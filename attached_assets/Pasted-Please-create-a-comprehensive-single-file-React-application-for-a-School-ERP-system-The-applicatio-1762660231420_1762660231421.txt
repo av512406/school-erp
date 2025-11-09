@@ -1,0 +1,137 @@
+Please create a comprehensive, single-file React application for a School ERP system. The application must use React (with Hooks), Tailwind CSS for styling, and Firebase (Firestore and Auth) for the backend, database, and user authentication.
+
+The application must be fully self-contained in a single .jsx file.
+
+Core Requirements:
+
+Authentication & Role-Based Access Control (RBAC):
+
+The application must be accessible only to authenticated users.
+
+Implement a login page using Firebase Authentication.
+
+There are two user roles: Admin (Principal) and Teacher.
+
+Store user roles in a Firestore collection (e.g., /artifacts/{appId}/public/data/users/{userId} with a field role: 'admin' or role: 'teacher').
+
+The UI and available features must change based on the logged-in user's role.
+
+Dashboard/Navigation:
+
+After login, display a clean navigation bar.
+
+Admin View: Should see links for: Dashboard, Students, Fees, Reports, Grades, and Data Tools.
+
+Teacher View: Should only see links for: Dashboard and Grades.
+
+Feature Breakdown:
+
+1. Student Details (Admin: CRUD, Teacher: Read-Only)
+
+Page: Students
+
+Admin Access: Full Create, Read, Update, Delete (CRUD) access.
+
+Create a form to add a new student (e.g., Student ID, Name, Grade, Section, Parent's Name, Contact Number).
+
+Display all students in a responsive Tailwind table.
+
+Include "Edit" and "Delete" buttons for each student.
+
+Teacher Access: Teachers can view the student list (Read-only) but cannot add, edit, or delete.
+
+2. Fees Management (Admin-Only)
+
+Page: Fees
+
+Admin Access:
+
+A form to record a new fee payment. This form should allow the admin to select a student (e.g., from a dropdown), enter the amount, and set the payment date.
+
+A table displaying all fee transactions (Student Name, Amount, Date, Transaction ID).
+
+This page is not visible to Teachers.
+
+3. Payslip Generation (Admin-Only)
+
+Page: Fees (Integrated feature)
+
+Admin Access:
+
+In the fee transactions table, each row should have a "Generate Payslip" button.
+
+Clicking this button should open a clean, simple modal or new view displaying a printable payslip.
+
+The payslip must include: School Name, Student Name, Amount Paid, Payment Date, and a "Paid" stamp.
+
+4. Report Card Generation (Admin-Only)
+
+Page: Reports
+
+Admin Access:
+
+Provide dropdowns for an Admin to select a Student and a Term (e.g., Term 1, Final).
+
+On selection, fetch all marks for that student for that term from the Grades collection.
+
+Display the results in a clean, professional "Report Card" layout, including subjects, marks obtained, and a total or average.
+
+This page is not visible to Teachers.
+
+5. Grade/Marks Entry (Teacher: Full Access, Admin: Full Access)
+
+Page: Grades
+
+Access: This is the primary page for Teachers and is also accessible by Admins.
+
+Functionality:
+
+Provide dropdowns to select Grade, Section, Subject, and Term.
+
+Once selected, display a list of all students in that Grade/Section.
+
+Show input fields next to each student's name to allow the Teacher/Admin to enter or update marks for the selected subject and term.
+
+Data should be saved to the Grades collection in Firestore.
+
+6. Data Import (Admin-Only)
+
+Page: Data Tools
+
+Admin Access:
+
+Implement a feature to upload a CSV file (as a proxy for Excel).
+
+Use a library like papaparse.js (loaded via CDN) to parse the CSV in the browser.
+
+Provide options to import data for:
+
+New Students (bulk-adding students to the Students collection).
+
+Student Marks (bulk-updating the Grades collection).
+
+This page is not visible to Teachers.
+
+7. Data Export (Admin-Only)
+
+Page: Data Tools (or on the Students page)
+
+Admin Access:
+
+Provide a "Download Student Data (CSV)" button.
+
+Clicking this button should fetch all data from the Students collection, format it as a CSV string, and trigger a browser download.
+
+Firestore Database Structure:
+
+Use the following public collections:
+
+/artifacts/{appId}/public/data/students (Stores student documents)
+
+/artifacts/{appId}/public/data/fees (Stores fee payment documents)
+
+/artifacts/{appId}/public/data/grades (Stores marks, e.g., { studentId, subject, marks, term })
+
+/artifacts/{appId}/public/data/users (Stores user roles, e.g., { role: 'admin' })
+
+Make the UI clean, responsive, and professional using Tailwind CSS.
