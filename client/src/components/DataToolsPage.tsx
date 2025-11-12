@@ -169,8 +169,8 @@ export default function DataToolsPage({ students, onImportStudents, onUpsertStud
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const filterSuffix = exportFilter === "all" ? "all" : `grade-${exportFilter}`;
-    a.download = `students-${filterSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
+  const filterSuffix = exportFilter === "all" ? "all" : `class-${exportFilter}`;
+  a.download = `students-${filterSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
 
@@ -271,15 +271,15 @@ export default function DataToolsPage({ students, onImportStudents, onUpsertStud
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="template-grade">Template Grade (optional)</Label>
+              <Label htmlFor="template-grade">Template Class (optional)</Label>
               <Select value={templateGrade} onValueChange={setTemplateGrade}>
                 <SelectTrigger id="template-grade">
-                  <SelectValue placeholder="Select grade for template" />
+                  <SelectValue placeholder="Select class for template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All grades</SelectItem>
+                  <SelectItem value="all">All classes</SelectItem>
                   {uniqueGrades.map(g => (
-                    <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+                    <SelectItem key={g} value={g}>Class {g}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -351,7 +351,7 @@ export default function DataToolsPage({ students, onImportStudents, onUpsertStud
 
         <Card>
           <CardHeader>
-            <CardTitle>Import Grades</CardTitle>
+            <CardTitle>Import Class Marks</CardTitle>
             <CardDescription>
               Upload a CSV file to bulk import student marks
             </CardDescription>
@@ -395,7 +395,7 @@ export default function DataToolsPage({ students, onImportStudents, onUpsertStud
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="export-filter">Filter by Grade</Label>
+              <Label htmlFor="export-filter">Filter by Class</Label>
               <Select
                 value={exportFilter}
                 onValueChange={setExportFilter}
@@ -408,7 +408,7 @@ export default function DataToolsPage({ students, onImportStudents, onUpsertStud
                   <SelectItem value="all">All Students</SelectItem>
                   {uniqueGrades.map(grade => (
                     <SelectItem key={grade} value={grade}>
-                      Grade {grade} only
+                      Class {grade} only
                     </SelectItem>
                   ))}
                 </SelectContent>

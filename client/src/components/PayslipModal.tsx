@@ -49,7 +49,7 @@ export default function PayslipModal({ transaction, isOpen, onClose }: PayslipMo
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Amount Paid</p>
-              <p className="text-2xl font-bold text-primary">${transaction.amount.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-primary">₹{transaction.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
 

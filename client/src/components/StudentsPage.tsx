@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -29,15 +31,25 @@ export default function StudentsPage({
   isReadOnly = false
 }: StudentsPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterGrade, setFilterGrade] = useState<string>("all");
+  const [filterSection, setFilterSection] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.admissionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.grade.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.section.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // derive unique grades and sections for filter dropdowns
+  const uniqueGrades = Array.from(new Set(students.map(s => s.grade))).sort((a, b) => parseInt(a) - parseInt(b));
+  const uniqueSections = Array.from(new Set(students.map(s => s.section))).sort();
+
+  const filteredStudents = students.filter(student => {
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch = q === '' || (
+      student.name.toLowerCase().includes(q) ||
+      student.admissionNumber.toLowerCase().includes(q)
+    );
+    const matchesGrade = filterGrade === 'all' ? true : student.grade === filterGrade;
+    const matchesSection = filterSection === 'all' ? true : student.section === filterSection;
+    return matchesSearch && matchesGrade && matchesSection;
+  });
 
   const handleAdd = () => {
     setEditingStudent(null);
@@ -77,15 +89,45 @@ export default function StudentsPage({
       </div>
 
       <div className="mb-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search students..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-students"
-          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or admission number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-students"
+            />
+          </div>
+          <div>
+            <Label htmlFor="filter-grade">Filter by Class</Label>
+            <Select value={filterGrade} onValueChange={setFilterGrade}>
+              <SelectTrigger id="filter-grade">
+                <SelectValue placeholder="All classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All classes</SelectItem>
+                {uniqueGrades.map(g => (
+                  <SelectItem key={g} value={g}>Class {g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-section">Filter by Section</Label>
+            <Select value={filterSection} onValueChange={setFilterSection}>
+              <SelectTrigger id="filter-section">
+                <SelectValue placeholder="All sections" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sections</SelectItem>
+                {uniqueSections.map(s => (
+                  <SelectItem key={s} value={s}>Section {s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

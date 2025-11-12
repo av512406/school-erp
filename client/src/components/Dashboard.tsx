@@ -23,12 +23,12 @@ export default function Dashboard({ stats, userRole }: DashboardProps) {
     },
     {
       title: "Pending Fees",
-      value: `$${stats.pendingFees.toLocaleString()}`,
+      value: `₹${stats.pendingFees.toLocaleString('en-IN')}`,
       icon: DollarSign,
       description: "Outstanding payments"
     },
     {
-      title: "Grades Entered",
+      title: "Classes Entered",
       value: stats.gradesEntered,
       icon: BookOpen,
       description: "This term"
@@ -55,7 +55,7 @@ export default function Dashboard({ stats, userRole }: DashboardProps) {
       description: "Total students"
     },
     {
-      title: "Grades Pending",
+      title: "Classes Pending",
       value: "12",
       icon: TrendingUp,
       description: "To be entered"

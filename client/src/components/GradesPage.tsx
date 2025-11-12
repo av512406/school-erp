@@ -135,7 +135,7 @@ export default function GradesPage({ students, grades, onSaveGrades }: GradesPag
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Grade Entry</h1>
+        <h1 className="text-2xl font-semibold">Class Entry</h1>
         <p className="text-muted-foreground">Enter and manage student marks</p>
       </div>
 
@@ -146,10 +146,10 @@ export default function GradesPage({ students, grades, onSaveGrades }: GradesPag
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="grade">Grade</Label>
+              <Label htmlFor="grade">Class</Label>
               <Select value={selectedGrade} onValueChange={setSelectedGrade}>
                 <SelectTrigger id="grade" data-testid="select-grade">
-                  <SelectValue placeholder="Select grade" />
+                  <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
                   {GRADES.map(grade => (
@@ -224,7 +224,7 @@ export default function GradesPage({ students, grades, onSaveGrades }: GradesPag
               </Button>
               <Button onClick={handleSave} className="gap-2" data-testid="button-save-grades">
                 <Save className="w-4 h-4" />
-                Save Grades
+                Save Class Marks
               </Button>
             </div>
           </CardHeader>
@@ -241,8 +241,8 @@ export default function GradesPage({ students, grades, onSaveGrades }: GradesPag
                 <TableBody>
                   {filteredStudents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                        No students found for Grade {selectedGrade} Section {selectedSection}
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                        No students found for Class {selectedGrade} Section {selectedSection}
                       </TableCell>
                     </TableRow>
                   ) : (

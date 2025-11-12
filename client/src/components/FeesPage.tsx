@@ -100,7 +100,7 @@ export default function FeesPage({ students, transactions, onAddTransaction }: F
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount ($)</Label>
+                <Label htmlFor="amount">Amount (₹)</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -199,7 +199,7 @@ export default function FeesPage({ students, transactions, onAddTransaction }: F
                         <TableRow key={transaction.id} data-testid={`row-transaction-${transaction.id}`}>
                           <TableCell className="font-mono text-sm">{transaction.transactionId}</TableCell>
                           <TableCell className="font-medium">{transaction.studentName}</TableCell>
-                          <TableCell className="font-semibold">${transaction.amount.toFixed(2)}</TableCell>
+                          <TableCell className="font-semibold">₹{transaction.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
                             <Button
