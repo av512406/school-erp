@@ -30,6 +30,8 @@ const TERMS = ['Term 1', 'Term 2', 'Final'];
 
 export default function ReportsPage({ students, grades }: ReportsPageProps) {
   const [selectedStudent, setSelectedStudent] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [showReport, setShowReport] = useState(false);
 
@@ -61,15 +63,45 @@ export default function ReportsPage({ students, grades }: ReportsPageProps) {
           <CardTitle>Select Student and Term</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="student">Student</Label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                <SelectTrigger id="student" data-testid="select-report-student">
-                  <SelectValue placeholder="Select student" />
+              <Label htmlFor="class">Class</Label>
+              <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedSection(''); setSelectedStudent(''); }}>
+                <SelectTrigger id="class" data-testid="select-report-class">
+                  <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.map(student => (
+                  <SelectItem value="">All classes</SelectItem>
+                  {Array.from(new Set(students.map(s => s.grade))).sort((a,b) => parseInt(a)-parseInt(b)).map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="section">Section</Label>
+              <Select value={selectedSection} onValueChange={(v) => { setSelectedSection(v); setSelectedStudent(''); }} disabled={!selectedClass}>
+                <SelectTrigger id="section" data-testid="select-report-section">
+                  <SelectValue placeholder={selectedClass ? "Select section" : "Select class first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All sections</SelectItem>
+                  {Array.from(new Set(students.filter(s => s.grade === selectedClass).map(s => s.section))).sort().map(sec => (
+                    <SelectItem key={sec} value={sec}>{sec}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="student">Student</Label>
+              <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={!selectedClass || !selectedSection}>
+                <SelectTrigger id="student" data-testid="select-report-student">
+                  <SelectValue placeholder={(!selectedClass || !selectedSection) ? "Select class & section first" : "Select student"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.filter(s => s.grade === selectedClass && s.section === selectedSection).map(student => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.name} ({student.admissionNumber})
                     </SelectItem>
@@ -130,7 +162,7 @@ export default function ReportsPage({ students, grades }: ReportsPageProps) {
                 <p className="font-mono font-semibold">{student.admissionNumber}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Grade / Section</p>
+                <p className="text-sm text-muted-foreground">Class / Section</p>
                 <p className="font-semibold">{student.grade} - {student.section}</p>
               </div>
               <div>
