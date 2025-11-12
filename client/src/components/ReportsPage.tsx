@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,10 @@ export default function ReportsPage({ students, grades }: ReportsPageProps) {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedSection, setSelectedSection] = useState("");
+  const [studentFilter, setStudentFilter] = useState("");
+  const [studentPage, setStudentPage] = useState(0);
+  const PAGE_SIZE = 50;
+  const [isStudentSelectOpen, setIsStudentSelectOpen] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState("");
   const [showReport, setShowReport] = useState(false);
 
@@ -71,7 +76,7 @@ export default function ReportsPage({ students, grades }: ReportsPageProps) {
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All classes</SelectItem>
+                  <SelectItem value="all">All classes</SelectItem>
                   {Array.from(new Set(students.map(s => s.grade))).sort((a,b) => parseInt(a)-parseInt(b)).map(c => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
@@ -86,7 +91,7 @@ export default function ReportsPage({ students, grades }: ReportsPageProps) {
                   <SelectValue placeholder={selectedClass ? "Select section" : "Select class first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All sections</SelectItem>
+                  <SelectItem value="all">All sections</SelectItem>
                   {Array.from(new Set(students.filter(s => s.grade === selectedClass).map(s => s.section))).sort().map(sec => (
                     <SelectItem key={sec} value={sec}>{sec}</SelectItem>
                   ))}
@@ -96,16 +101,67 @@ export default function ReportsPage({ students, grades }: ReportsPageProps) {
 
             <div className="space-y-2">
               <Label htmlFor="student">Student</Label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={!selectedClass || !selectedSection}>
+              <Select
+                value={selectedStudent}
+                onValueChange={(v) => {
+                  if (v === '__LOAD_MORE__') {
+                    setStudentPage(p => p + 1);
+                    // reopen so user can continue selecting
+                    setIsStudentSelectOpen(true);
+                    return;
+                  }
+                  setSelectedStudent(v);
+                  setIsStudentSelectOpen(false);
+                }}
+                disabled={!selectedClass || !selectedSection}
+                open={isStudentSelectOpen}
+                onOpenChange={(open) => {
+                  setIsStudentSelectOpen(open);
+                  if (open) {
+                    // reset pagination/filter when opened
+                    setStudentPage(0);
+                    setStudentFilter('');
+                  }
+                }}
+              >
                 <SelectTrigger id="student" data-testid="select-report-student">
-                  <SelectValue placeholder={(!selectedClass || !selectedSection) ? "Select class & section first" : "Select student"} />
+                  <SelectValue placeholder={(!selectedClass || selectedClass === 'all' || !selectedSection || selectedSection === 'all') ? "Select class & section first" : "Select student"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.filter(s => s.grade === selectedClass && s.section === selectedSection).map(student => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.name} ({student.admissionNumber})
-                    </SelectItem>
-                  ))}
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search student name or admission no..."
+                      value={studentFilter}
+                      onChange={(e) => { setStudentFilter(e.target.value); setStudentPage(0); }}
+                      data-testid="input-student-search"
+                    />
+                  </div>
+                  <div className="p-1">
+                    {(() => {
+                      const pool = students.filter(s => s.grade === selectedClass && s.section === selectedSection);
+                      const filtered = pool.filter(s => {
+                        const q = studentFilter.trim().toLowerCase();
+                        if (!q) return true;
+                        return s.name.toLowerCase().includes(q) || s.admissionNumber.toLowerCase().includes(q);
+                      });
+                      const start = 0;
+                      const end = (studentPage + 1) * PAGE_SIZE;
+                      const pageItems = filtered.slice(start, end);
+                      return (
+                        <>
+                          {pageItems.map(student => (
+                            <SelectItem key={student.id} value={student.id}>{student.name} ({student.admissionNumber})</SelectItem>
+                          ))}
+                          {filtered.length > end && (
+                            <SelectItem value="__LOAD_MORE__">Load more...</SelectItem>
+                          )}
+                          {filtered.length === 0 && (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">No students found</div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
