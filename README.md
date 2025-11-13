@@ -19,12 +19,322 @@ Key files to review:
 - `server/routes.ts`, `server/storage.ts` — server endpoints and file storage handling.
 
 ## Requirements & contract (assumptions)
-- Data shape: student records (demographics, grades, fees, payment history, payslips). Expect each student record to be small (few KB) but file attachments (payslips) could add MBs if not optimized.
-- Concurrency: ~50 interactive users during school hours. Peak concurrent API requests likely <200/minute for this scale unless heavy batch/report generation is done.
 
-## Readiness checklist — immediate gaps to fix
 1. Environment & secrets
    - Move any credentials out of source into environment variables.
+## Production deployment guide — step-by-step
+
+This section provides a pragmatic, repeatable set of steps to deploy the School ERP application to a production environment. It targets a small-to-medium self-hosted or managed deployment (one server or small managed services) and includes detailed commands and examples. Choose the parts that match your infrastructure (VPS, Cloud VM, or managed platforms like Render/Heroku/Vercel/Supabase).
+
+High-level approach (recommended for most teams):
+- Host the frontend (static) on Vercel / Netlify / Firebase Hosting or a static web server (Nginx).
+- Run the server (Express) and Postgres on a small VM (VPS) or use managed services (Render / Railway / DigitalOcean App Platform / AWS Elastic Beanstalk). For managed Postgres, use Supabase, AWS RDS, or DigitalOcean Managed DB.
+- Store files (payslips) in S3-compatible object storage (AWS S3, DigitalOcean Spaces, or Firebase Storage).
+
+Prerequisites
+- A server (VPS) or managed platform with Node 18+ and enough memory (1-2 GB for small deployments).
+- Postgres database (managed or self-hosted). Example uses Postgres 15/16.
+- Domain name and DNS control for obtaining TLS certificates.
+- Optional: Docker and docker-compose if you prefer container deployments.
+
+1) Prepare secrets & environment variables
+- Create a `.env` (server) and `.env.production` (client build-time) files; never commit them. Add a `.env.example` to the repo listing required keys.
+
+Essential server env variables (example names used in repo):
+
+```env
+# Postgres
+DATABASE_URL=postgres://<user>:<password>@<host>:<port>/<db>
+
+# Node env
+NODE_ENV=production
+
+# JWT or Firebase config (if using Firebase Auth server-side validation)
+FIREBASE_PROJECT_ID=...
+FIREBASE_CLIENT_EMAIL=...
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# Storage (S3 compatible)
+STORAGE_PROVIDER=s3
+S3_BUCKET=school-erp-files
+S3_ENDPOINT= (optional, for DO Spaces)
+S3_REGION=ap-south-1
+S3_KEY=...
+S3_SECRET=...
+
+# Optional: server bind port
+PORT=3000
+```
+
+Client env variables (used at build time if you rely on environment-driven frontend config):
+
+```env
+VITE_API_BASE_URL=https://app.yourschool.org
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+```
+
+Security notes:
+- Use a secret manager where possible (AWS Secrets Manager, Vault, or platform-provided secrets) instead of plaintext `.env` files.
+- Keep private keys and service account JSON secure.
+
+2) Prepare the database (Postgres)
+- If using a managed Postgres (Supabase/RDS), create the database and a dedicated user.
+- If self-hosting with Docker, use a minimal `docker-compose.yml` (example snippet below) and keep Postgres data on a named volume.
+
+docker-compose snippet (Postgres only):
+
+```yaml
+version: '3.8'
+services:
+   postgres:
+      image: postgres:16
+      restart: unless-stopped
+      environment:
+         POSTGRES_USER: school_erp
+         POSTGRES_PASSWORD: school_erp_pass
+         POSTGRES_DB: school_erp
+      volumes:
+         - postgres-data:/var/lib/postgresql/data
+      ports:
+         - "15432:5432"
+
+volumes:
+   postgres-data:
+```
+
+- Wait until Postgres is healthy and reachable at `DATABASE_URL`.
+
+3) Apply schema migrations
+- This project includes Drizzle config (`drizzle.config.ts`). Prefer running formal migrations in production rather than `ensureTables()` helpers.
+- Example: using drizzle-kit (already in devDependencies). Create migration files and push them:
+
+```bash
+# generate migration (one-time):
+npx drizzle-kit generate --out migrations --config ./drizzle.config.ts
+# inspect and edit migration SQL, then run:
+npx drizzle-kit push --config ./drizzle.config.ts
+```
+
+If you added `server/db.ts` with a dev `ensureTables()` helper, only use it for local/dev. For production, rely on reviewed migrations.
+
+4) Build the frontend
+- From repo root (or `client/`):
+
+```bash
+cd client
+# install deps (if not already)
+npm ci
+npm run build
+# the build outputs static files into dist/ (Vite default) or client/dist
+```
+
+- Deploy the produced static files to a static host (Vercel, Netlify, or a VPS with Nginx). Example Nginx config shown later.
+
+5) Build and run the server (Express)
+- Option A: Deploy as systemd service on a VPS
+
+Install deps and build server bundle (example using esbuild or run via `tsx`):
+
+```bash
+# on server
+cd /srv/school-erp
+git pull origin main
+npm ci --production
+# build step (optional if you run directly with tsx)
+npm run build
+
+# run with node (production build) or pm2/systemd to manage process
+NODE_ENV=production PORT=3000 DATABASE_URL="postgres://..." node dist/index.js
+```
+
+Systemd unit example (`/etc/systemd/system/school-erp.service`):
+
+```ini
+[Unit]
+Description=School ERP server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/srv/school-erp
+ExecStart=/usr/bin/node /srv/school-erp/dist/index.js
+Environment=NODE_ENV=production
+Environment=DATABASE_URL=postgres://... # prefer EnvironmentFile
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable school-erp
+sudo systemctl start school-erp
+sudo journalctl -u school-erp -f
+```
+
+- Option B: Deploy with Docker Compose (server + Postgres + reverse proxy)
+
+Provide a `docker-compose.prod.yml` with services: postgres, app (Node), nginx, and optionally certbot. Example flow:
+
+```bash
+# build images
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+6) Configure reverse proxy + TLS (Nginx + Certbot)
+- Example Nginx site config for `app.yourschool.org` (assumes server listening on 3000 and static site served from /var/www/school-erp):
+
+```nginx
+server {
+   listen 80;
+   server_name app.yourschool.org;
+
+   location /api/ {
+      proxy_pass http://127.0.0.1:3000/api/;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+   }
+
+   location / {
+      root /var/www/school-erp;
+      try_files $uri $uri/ /index.html;
+   }
+}
+```
+
+Obtain certificates with Certbot:
+
+```bash
+sudo certbot --nginx -d app.yourschool.org
+```
+
+7) File storage (payslips)
+- Use S3-compatible storage for attachments. Configure server with the S3 credentials and bucket name. Ensure objects are private and accessed via signed URLs.
+- Example: use AWS S3 with presigned URLs or CloudFront + signed cookies if needed.
+
+8) Backups and restores
+- Postgres backups: schedule daily dumps to object storage.
+
+Example cron job (`/etc/cron.daily/pg_backup`):
+
+```bash
+#!/bin/bash
+# environment should contain DATABASE_URL and S3 credentials or use a service account
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+pg_dump "$DATABASE_URL" | gzip > /tmp/school_erp_backup_${TIMESTAMP}.sql.gz
+# upload to S3 using aws-cli or s3cmd
+aws s3 cp /tmp/school_erp_backup_${TIMESTAMP}.sql.gz s3://your-backup-bucket/school-erp/
+rm /tmp/school_erp_backup_${TIMESTAMP}.sql.gz
+```
+
+- Test restore in a staging environment before relying on backups.
+
+9) Monitoring, logging & alerts
+- Logging: write structured logs (JSON) and rotate them (logrotate) or ship to a logging provider.
+- Metrics: instrument key endpoints (request latency, error rate) and export via Prometheus or use provider metrics.
+- Error reporting: add Sentry or equivalent for uncaught exceptions and promise rejections.
+
+10) CI/CD (example GitHub Actions)
+- Example workflow outline:
+   - On push to `main`: run tests + lint, build client and server artifacts, create Docker image, push to a registry, and deploy to the server via SSH or to your hosting provider.
+
+Minimal GitHub Actions job (concept):
+
+```yaml
+name: CI
+on: [push]
+jobs:
+   build:
+      runs-on: ubuntu-latest
+      steps:
+         - uses: actions/checkout@v4
+         - uses: pnpm/action-setup@v2
+            with:
+               node-version: 18
+         - name: Install
+            run: npm ci
+         - name: Typecheck
+            run: npm run check
+         - name: Build client
+            run: |
+               cd client
+               npm ci
+               npm run build
+         - name: Build server
+            run: npm run build
+         - name: Deploy (example via SSH)
+            uses: appleboy/ssh-action@v0.1.7
+            with:
+               host: ${{ secrets.SERVER_HOST }}
+               username: ${{ secrets.SERVER_USER }}
+               key: ${{ secrets.SERVER_SSH_KEY }}
+               script: |
+                  cd /srv/school-erp
+                  git pull origin main
+                  npm ci --production
+                  npm run build
+                  sudo systemctl restart school-erp
+```
+
+11) Health checks & readiness
+- Add a `/health` endpoint that returns 200 when the app can reach the database and storage. Configure your host/load balancer to call it.
+
+12) Rollback strategy
+- Keep previous working release available (Docker image tag or git commit) and a documented rollback command:
+
+```bash
+# rollback on server
+cd /srv/school-erp
+git checkout <previous-tag-or-commit>
+npm ci --production
+npm run build
+sudo systemctl restart school-erp
+```
+
+13) Post-deploy checklist (verify everything)
+- Smoke test: visit the site, log in as admin, list students, import CSV, and generate a sample payslip.
+- Verify logs and error reporting for any new warnings.
+- Verify backups are running and upload succeeded.
+
+Appendix — Helpful commands
+
+- Start Postgres (docker-compose):
+
+```bash
+docker compose up -d postgres
+```
+
+- Build client and copy to static host (`/var/www/school-erp`):
+
+```bash
+cd client
+npm ci
+npm run build
+sudo rm -rf /var/www/school-erp/*
+sudo cp -r dist/* /var/www/school-erp/
+```
+
+- Start server with Node:
+
+```bash
+cd /srv/school-erp
+npm ci --production
+NODE_ENV=production DATABASE_URL="postgres://user:pass@localhost:15432/school_erp" PORT=3000 node dist/index.js
+```
+
+If you want, I can also:
+- Provide a ready-to-run `docker-compose.prod.yml` that includes Postgres, Node app, Nginx, and Certbot configured for a single VPS deployment.
+- Create a ready-made GitHub Actions workflow that builds, tests, and deploys via SSH to your server.
+
+If you want me to generate either of those (docker-compose for prod or GitHub Actions), tell me which and I'll add it to the repository and wire up environment variable examples.
    - Replace placeholder values in `client/src/firebase.ts` with secure env-driven config.
 
 2. Data persistence & schema
